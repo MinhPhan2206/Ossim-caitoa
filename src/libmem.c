@@ -234,7 +234,6 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
     /* TODO Initialize the target frame storing our variable */
 //  addr_t tgtfpn 
 
-    /* TODO: Play with your paging theory here */
     /* Find victim page */
     if (find_victim_page(caller->krnl->mm, &vicpgn) == -1)
     {
@@ -247,19 +246,22 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
       return -1;
     }
 
-    /* TODO: Implement swap frame from MEMRAM to MEMSWP and vice versa*/
-
-    /* TODO copy victim frame to swap 
-     * SWP(vicfpn <--> swpfpn)
-     * SYSCALL 1 sys_memmap
-     */
+    uint32_t vicpte = pte_get_entry(caller, vicpgn);
+    int vicfpn = PAGING_FPN(vicpte);
 
 
     /* Update page table */
-    //pte_set_swap(...);
+    pte_set_swap(caller, vicpgn, 0, swpfpn);
 
     /* Update its online status of the target page */
-    //pte_set_fpn(...);
+    pte_set_fpn(caller, pgn, vicfpn);
+
+    struct sc_regs regs;
+    regs.a1 = SYSMEM_SWP_OP;    
+    regs.a2 = vicpgn;        
+    regs.a3 = swpfpn;          
+    
+    _syscall(caller->krnl, caller->pid, 17, &regs);
 
     enlist_pgn_node(&caller->krnl->mm->fifo_pgn, pgn);
   }
@@ -278,20 +280,15 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
 int pg_getval(struct mm_struct *mm, int addr, BYTE *data, struct pcb_t *caller)
 {
   int pgn = PAGING_PGN(addr);
-//int off = PAGING_OFFST(addr);
+  int off = PAGING_OFFST(addr);
   int fpn;
 
   if (pg_getpage(mm, pgn, &fpn, caller) != 0)
     return -1; /* invalid page access */
 
-//int phyaddr = (fpn << PAGING_ADDR_FPN_LOBIT) + off;
+  int phyaddr = (fpn << PAGING_ADDR_FPN_LOBIT) + off;
 
-  /* TODO 
-   *  MEMPHY_read(caller->krnl->mram, phyaddr, data);
-   *  MEMPHY READ 
-   *  SYSCALL 17 sys_memmap with SYSMEM_IO_READ
-   */
-
+  MEMPHY_read(caller->krnl->mram, phyaddr, data);
   return 0;
 }
 
@@ -304,19 +301,16 @@ int pg_getval(struct mm_struct *mm, int addr, BYTE *data, struct pcb_t *caller)
 int pg_setval(struct mm_struct *mm, int addr, BYTE value, struct pcb_t *caller)
 {
   int pgn = PAGING_PGN(addr);
-//int off = PAGING_OFFST(addr);
+  int off = PAGING_OFFST(addr);
   int fpn;
 
   /* Get the page to MEMRAM, swap from MEMSWAP if needed */
   if (pg_getpage(mm, pgn, &fpn, caller) != 0)
     return -1; /* invalid page access */
 
-
-  /* TODO 
-   *  MEMPHY_write(caller->krnl->mram, phyaddr, value);
-   *  MEMPHY WRITE with SYSMEM_IO_WRITE 
-   * SYSCALL 17 sys_memmap
-   */
+  int phyaddr = (fpn << PAGING_ADDR_FPN_LOBIT) + off;
+  
+  MEMPHY_write(caller->krnl->mram, phyaddr, value);
 
   return 0;
 }
