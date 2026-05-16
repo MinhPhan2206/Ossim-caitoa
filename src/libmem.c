@@ -231,42 +231,56 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
 //  addr_t vicpte;
 //  struct sc_regs regs;
 
-    /* TODO Initialize the target frame storing our variable */
-//  addr_t tgtfpn 
+    addr_t tgtfpn ;
 
     /* Find victim page */
-    if (find_victim_page(caller->krnl->mm, &vicpgn) == -1)
+    if (MEMPHY_get_freefp(caller->krnl->mram, &tgtfpn) == -1)
     {
-      return -1;
+      if (find_victim_page(caller->krnl->mm, &vicpgn) == -1)
+      {
+        return -1;
+      }
+
+      if (MEMPHY_get_freefp(caller->krnl->active_mswp, &swpfpn) == -1)
+      {
+        return -1;
+      }
+
+      uint32_t vicpte = pte_get_entry(caller, vicpgn);
+      tgtfpn = PAGING_FPN(vicpte);
+
+      pte_set_swap(caller, vicpgn, 0, swpfpn);
+
+      struct sc_regs regs;
+      regs.a1 = SYSMEM_SWP_OP;    
+      regs.a2 = vicpgn;        
+      regs.a3 = swpfpn;          
+      _syscall(caller->krnl, caller->pid, 17, &regs);
     }
 
-    /* Get free frame in MEMSWP */
-    if (MEMPHY_get_freefp(caller->krnl->active_mswp, &swpfpn) == -1)
+    if (PAGING_PAGE_SWAPPED(pte))
     {
-      return -1;
+      addr_t src_swpfpn = PAGING_SWP(pte);
+      
+      for (int i = 0; i < PAGING_PAGESZ; i++)
+      {
+        BYTE byte_data;
+        addr_t swp_phyaddr = (src_swpfpn << PAGING_ADDR_FPN_LOBIT) + i;
+        addr_t ram_phyaddr = (tgtfpn << PAGING_ADDR_FPN_LOBIT) + i;
+
+        MEMPHY_read(caller->krnl->active_mswp, swp_phyaddr, &byte_data);
+        MEMPHY_write(caller->krnl->mram, ram_phyaddr, byte_data);
+      }
+      
+      MEMPHY_put_freefp(caller->krnl->active_mswp, src_swpfpn);
     }
 
-    uint32_t vicpte = pte_get_entry(caller, vicpgn);
-    int vicfpn = PAGING_FPN(vicpte);
-
-
-    /* Update page table */
-    pte_set_swap(caller, vicpgn, 0, swpfpn);
-
-    /* Update its online status of the target page */
-    pte_set_fpn(caller, pgn, vicfpn);
-
-    struct sc_regs regs;
-    regs.a1 = SYSMEM_SWP_OP;    
-    regs.a2 = vicpgn;        
-    regs.a3 = swpfpn;          
-    
-    _syscall(caller->krnl, caller->pid, 17, &regs);
+    pte_set_fpn(caller, pgn, tgtfpn);
 
     enlist_pgn_node(&caller->krnl->mm->fifo_pgn, pgn);
   }
 
-  *fpn = PAGING_FPN(pte_get_entry(caller,pgn));
+  *fpn = PAGING_FPN(pte_get_entry(caller, pgn));
 
   return 0;
 }
