@@ -170,9 +170,20 @@ int MEMPHY_get_freefp(struct memphy_struct *mp, addr_t *retfpn)
 
 int MEMPHY_dump(struct memphy_struct *mp)
 {
-  /*TODO dump memphy contnt mp->storage
-   *     for tracing the memory content
-   */
+   if (mp == NULL || mp->storage == NULL) return -1;
+   
+   printf("--- DUMPING MEMPHY CONTENT ---\n");
+   int has_data = 0;
+   for (int i = 0; i < mp->maxsz; i++) {
+       if (mp->storage[i] != 0) { 
+           printf("Address [0x%08x] : %02x\n", i, mp->storage[i]);
+           has_data = 1;
+       }
+   }
+   if (!has_data) {
+       printf("Memory is completely empty (all zeros).\n");
+   }
+   printf("------------------------------\n");
    return 0;
 }
 
