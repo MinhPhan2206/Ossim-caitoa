@@ -22,6 +22,7 @@ void put_proc(struct pcb_t * proc);
 
 /* Add a new process to ready queue */
 void add_proc(struct pcb_t * proc);
+struct pcb_t *find_pcb_by_pid(struct krnl_t *krnl, uint32_t pid);
 
 #endif
 
