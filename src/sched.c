@@ -192,4 +192,54 @@ void add_proc(struct pcb_t * proc) {
 }
 #endif
 
+struct pcb_t *find_pcb_by_pid(struct krnl_t *krnl, uint32_t pid)
+{
+    struct pcb_t *proc = NULL;
+    int i, prio;
+    
+    pthread_mutex_lock(&queue_lock);
+    
+    /* Search in running_list */
+    for (i = 0; i < running_list.size; i++) {
+        if (running_list.proc[i] != NULL && running_list.proc[i]->pid == pid) {
+            proc = running_list.proc[i];
+            pthread_mutex_unlock(&queue_lock);
+            return proc;
+        }
+    }
+    
+#ifdef MLQ_SCHED
+    /* Search in MLQ ready queues */
+    for (prio = 0; prio < MAX_PRIO; prio++) {
+        for (i = 0; i < mlq_ready_queue[prio].size; i++) {
+            if (mlq_ready_queue[prio].proc[i] != NULL && mlq_ready_queue[prio].proc[i]->pid == pid) {
+                proc = mlq_ready_queue[prio].proc[i];
+                pthread_mutex_unlock(&queue_lock);
+                return proc;
+            }
+        }
+    }
+#else
+    /* Search in ready_queue */
+    for (i = 0; i < ready_queue.size; i++) {
+        if (ready_queue.proc[i] != NULL && ready_queue.proc[i]->pid == pid) {
+            proc = ready_queue.proc[i];
+            pthread_mutex_unlock(&queue_lock);
+            return proc;
+        }
+    }
+    
+    /* Search in run_queue */
+    for (i = 0; i < run_queue.size; i++) {
+        if (run_queue.proc[i] != NULL && run_queue.proc[i]->pid == pid) {
+            proc = run_queue.proc[i];
+            pthread_mutex_unlock(&queue_lock);
+            return proc;
+        }
+    }
+#endif
+    
+    pthread_mutex_unlock(&queue_lock);
+    return NULL;
+}
 
