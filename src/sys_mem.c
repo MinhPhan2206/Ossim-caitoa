@@ -13,6 +13,7 @@
 #include "libmem.h"
 #include "queue.h"
 #include <stdlib.h>
+#include <pthread.h>
 
 #ifdef MM64
 #include "mm64.h"
@@ -21,7 +22,7 @@
 #endif
 
 //typedef char BYTE;
-
+static pthread_mutex_t sys_mem_lock = PTHREAD_MUTEX_INITIALIZER;
 int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
 {
    int memop = regs->a1;
@@ -30,9 +31,17 @@ int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
    /* TODO THIS DUMMY CREATE EMPTY PROC TO AVOID COMPILER NOTIFY 
     *      need to be eliminated
 	*/
-   struct pcb_t *caller = malloc(sizeof(struct pcb_t));
-   caller->krnl = malloc(sizeof(struct krnl_t));
-
+   int ret = 0;
+   pthread_mutex_lock(&sys_mem_lock);
+   struct pcb_t *caller = find_pcb_by_pid(krnl, pid);
+   if (caller == NULL) {
+       printf("__sys_memmap: Process %d not found\n", pid);
+       pthread_mutex_unlock(&sys_mem_lock);
+       return -1;
+   }
+   
+   /* Set kernel pointer for the caller */
+   caller->krnl = krnl;
    /*
     * @bksysnet: Please note in the dual spacing design
     *            syscall implementations are in kernel space.
@@ -50,27 +59,28 @@ int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
    switch (memop) {
    case SYSMEM_MAP_OP:
             /* Reserved process case*/
-			vmap_pgd_memset(caller, regs->a2, regs->a3);
+			ret = vmap_pgd_memset(caller, regs->a2, regs->a3);
             break;
    case SYSMEM_INC_OP:
-            inc_vma_limit(caller, regs->a2, regs->a3);
+            ret = inc_vma_limit(caller, regs->a2, regs->a3);
             break;
    case SYSMEM_SWP_OP:
-            __mm_swap_page(caller, regs->a2, regs->a3);
+            ret = __mm_swap_page(caller, regs->a2, regs->a3);
             break;
    case SYSMEM_IO_READ:
-            MEMPHY_read(caller->krnl->mram, regs->a2, &value);
+            ret = MEMPHY_read(caller->krnl->mram, regs->a2, &value);
             regs->a3 = value;
             break;
    case SYSMEM_IO_WRITE:
-            MEMPHY_write(caller->krnl->mram, regs->a2, regs->a3);
+            ret = MEMPHY_write(caller->krnl->mram, regs->a2, (BYTE)regs->a3);
             break;
    default:
-            printf("Memop code: %d\n", memop);
+            printf("__sys_memmap: Unknown memop %d\n", memop);
+            ret = -1;
             break;
    }
-   
-   return 0;
+   pthread_mutex_unlock(&sys_mem_lock);
+   return ret;
 }
 
 
