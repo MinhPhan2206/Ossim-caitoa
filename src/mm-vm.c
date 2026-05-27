@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+extern addr_t vm_map_ram(struct pcb_t *caller, addr_t astart, addr_t aend, addr_t mapstart, int incpgnum, struct vm_rg_struct *ret_rg);
+
 /* Tìm VMA dựa vào ID */
 struct vm_area_struct *get_vma_by_num(struct mm_struct *mm, int vmaid) {
     struct vm_area_struct *pvma = mm->mmap;
@@ -93,5 +95,34 @@ int enlist_pgn_node(struct pgn_t **plist, addr_t pgn) {
     pnode->pgn = pgn;
     pnode->pg_next = *plist;
     *plist = pnode;
+    return 0;
+}
+
+int find_victim_page(struct mm_struct *mm, addr_t *retpgn)
+{
+    struct pgn_t *pg = mm->fifo_pgn;
+    struct pgn_t *prev = NULL;
+
+    /* Nếu danh sách rỗng, không có trang để swap */
+    if (pg == NULL)
+        return -1;
+
+    /* Duyệt đến phần tử cuối cùng của danh sách liên kết */
+    while (pg->pg_next != NULL) {
+        prev = pg;
+        pg = pg->pg_next;
+    }
+
+    /* Lưu lại page number của trang nạn nhân */
+    *retpgn = pg->pgn;
+
+    /* Cắt node cuối cùng ra khỏi danh sách */
+    if (prev != NULL) {
+        prev->pg_next = NULL;
+    } else {
+        mm->fifo_pgn = NULL; /* Trường hợp chỉ có 1 phần tử */
+    }
+
+    free(pg); /* Giải phóng bộ nhớ của node */
     return 0;
 }
