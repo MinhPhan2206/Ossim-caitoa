@@ -10,6 +10,8 @@
 
 #if defined(MM64)
 
+int total_allocated_pagetables = 1;
+
 int init_pte(addr_t *pte, int pre, addr_t fpn, int drt, int swp, int swptyp, addr_t swpoff) {
     if (pre != 0) {
         if (swp == 0) {
@@ -48,16 +50,28 @@ static addr_t* walk_page_table(struct pcb_t *caller, addr_t pgn) {
     get_pd_from_pagenum(pgn, &pgd_idx, &p4d_idx, &pud_idx, &pmd_idx, &pt_idx);
 
     addr_t *pgd = caller->krnl->mm->pgd;
-    if (pgd[pgd_idx] == 0) pgd[pgd_idx] = (addr_t)calloc(512, sizeof(addr_t));
+    if (pgd[pgd_idx] == 0) {
+        pgd[pgd_idx] = (addr_t)calloc(512, sizeof(addr_t));
+        total_allocated_pagetables++; // Tăng biến đếm
+    }
     addr_t *p4d = (addr_t *)pgd[pgd_idx];
 
-    if (p4d[p4d_idx] == 0) p4d[p4d_idx] = (addr_t)calloc(512, sizeof(addr_t));
+    if (p4d[p4d_idx] == 0) {
+        p4d[p4d_idx] = (addr_t)calloc(512, sizeof(addr_t));
+        total_allocated_pagetables++; // Tăng biến đếm
+    }
     addr_t *pud = (addr_t *)p4d[p4d_idx];
 
-    if (pud[pud_idx] == 0) pud[pud_idx] = (addr_t)calloc(512, sizeof(addr_t));
+    if (pud[pud_idx] == 0) {
+        pud[pud_idx] = (addr_t)calloc(512, sizeof(addr_t));
+        total_allocated_pagetables++; // Tăng biến đếm
+    }
     addr_t *pmd = (addr_t *)pud[pud_idx];
 
-    if (pmd[pmd_idx] == 0) pmd[pmd_idx] = (addr_t)calloc(512, sizeof(addr_t));
+    if (pmd[pmd_idx] == 0) {
+        pmd[pmd_idx] = (addr_t)calloc(512, sizeof(addr_t));
+        total_allocated_pagetables++; // Tăng biến đếm
+    }
     addr_t *pt = (addr_t *)pmd[pmd_idx];
 
     return &pt[pt_idx];
