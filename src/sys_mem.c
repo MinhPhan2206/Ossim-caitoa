@@ -13,6 +13,7 @@
 #include "libmem.h"
 #include "queue.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 #ifdef MM64
 #include "mm64.h"
@@ -20,32 +21,30 @@
 #include "mm.h"
 #endif
 
-//typedef char BYTE;
-
 int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
 {
    int memop = regs->a1;
    BYTE value;
-   
-   /* TODO THIS DUMMY CREATE EMPTY PROC TO AVOID COMPILER NOTIFY 
-    *      need to be eliminated
-	*/
-   struct pcb_t *caller = malloc(sizeof(struct pcb_t));
-   caller->krnl = malloc(sizeof(struct krnl_t));
+   struct pcb_t *caller = NULL;
 
-   /*
-    * @bksysnet: Please note in the dual spacing design
-    *            syscall implementations are in kernel space.
+   /* * Bảo mật không gian nhớ: User process không được truy cập trực tiếp PCB.
+    * Kernel phải tự quét trong running_list để tìm ra tiến trình gọi system call (caller).
     */
+   struct queue_t *running_list = krnl->running_list;
+   if (running_list != NULL) {
+       for (int i = 0; i < running_list->size; i++) {
+           if (running_list->proc[i] != NULL && running_list->proc[i]->pid == pid) {
+               caller = running_list->proc[i];
+               break;
+           }
+       }
+   }
 
-   /* TODO: Traverse proclist to terminate the proc
-    *       stcmp to check the process match proc_name
-    */
-//	struct queue_t *running_list = krnl->running_list;
-
-    /* TODO Maching and marking the process */
-    /* user process are not allowed to access directly pcb in kernel space of syscall */
-    //....
+   /* Nếu không tìm thấy tiến trình hợp lệ, chặn thực thi để tránh crash (Segfault) */
+   if (caller == NULL) {
+       printf("[ERROR] sys_memmap: PID %d not found in running_list!\n", pid);
+       return -1;
+   }
 	
    switch (memop) {
    case SYSMEM_MAP_OP:
@@ -72,5 +71,3 @@ int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
    
    return 0;
 }
-
-
