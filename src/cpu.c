@@ -37,7 +37,7 @@ int read(
 { // Index of destination register
 
 	BYTE data;
-	if (read_mem(proc->regs[source] + offset, proc, &data))
+	if (read_mem(proc->regs[source] + offset, proc, &data) == 0)
 	{
 		proc->regs[destination] = data;
 		return 0;
