@@ -14,6 +14,7 @@
 #include "queue.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
 
 #ifdef MM64
 #include "mm64.h"
@@ -21,11 +22,16 @@
 #include "mm.h"
 #endif
 
+static pthread_mutex_t sys_mem_lock = PTHREAD_MUTEX_INITIALIZER;
+
 int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
 {
    int memop = regs->a1;
    BYTE value;
    struct pcb_t *caller = NULL;
+   int ret = 0;
+
+   pthread_mutex_lock(&sys_mem_lock);
 
    /* * Bảo mật không gian nhớ: User process không được truy cập trực tiếp PCB.
     * Kernel phải tự quét trong running_list để tìm ra tiến trình gọi system call (caller).
@@ -43,6 +49,7 @@ int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
    /* Nếu không tìm thấy tiến trình hợp lệ, chặn thực thi để tránh crash (Segfault) */
    if (caller == NULL) {
        printf("[ERROR] sys_memmap: PID %d not found in running_list!\n", pid);
+	   pthread_mutex_unlock(&sys_mem_lock);
        return -1;
    }
 	
@@ -68,6 +75,7 @@ int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
             printf("Memop code: %d\n", memop);
             break;
    }
-   
+
+   pthread_mutex_unlock(&sys_mem_lock);
    return 0;
 }
