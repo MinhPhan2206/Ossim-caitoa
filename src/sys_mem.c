@@ -29,7 +29,7 @@ int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
    int memop = regs->a1;
    BYTE value;
    struct pcb_t *caller = NULL;
-   int ret = 0;
+   //int ret = 0;
 
    pthread_mutex_lock(&sys_mem_lock);
 
