@@ -98,31 +98,3 @@ int enlist_pgn_node(struct pgn_t **plist, addr_t pgn) {
     return 0;
 }
 
-int find_victim_page(struct mm_struct *mm, addr_t *retpgn)
-{
-    struct pgn_t *pg = mm->fifo_pgn;
-    struct pgn_t *prev = NULL;
-
-    /* Nếu danh sách rỗng, không có trang để swap */
-    if (pg == NULL)
-        return -1;
-
-    /* Duyệt đến phần tử cuối cùng của danh sách liên kết */
-    while (pg->pg_next != NULL) {
-        prev = pg;
-        pg = pg->pg_next;
-    }
-
-    /* Lưu lại page number của trang nạn nhân */
-    *retpgn = pg->pgn;
-
-    /* Cắt node cuối cùng ra khỏi danh sách */
-    if (prev != NULL) {
-        prev->pg_next = NULL;
-    } else {
-        mm->fifo_pgn = NULL; /* Trường hợp chỉ có 1 phần tử */
-    }
-
-    free(pg); /* Giải phóng bộ nhớ của node */
-    return 0;
-}
