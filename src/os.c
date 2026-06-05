@@ -296,6 +296,16 @@ int main(int argc, char * argv[]) {
 	/* Stop timer */
 	stop_timer();
 
+	printf("\n[OS SHUTDOWN] Extracting system telemetry...\n");
+	
+	extern void MEMPHY_print_stats();
+	MEMPHY_print_stats();
+
+#ifdef MM64
+	extern void print_paging_storage_stats();
+	print_paging_storage_stats();
+#endif
+
 	return 0;
 
 }
