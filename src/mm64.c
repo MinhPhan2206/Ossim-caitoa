@@ -201,4 +201,17 @@ int print_list_vma(struct vm_area_struct *ivma) { return 0; }
 int print_list_pgn(struct pgn_t *ip) { return 0; }
 int print_pgtbl(struct pcb_t *caller, addr_t start, addr_t end) { return 0; }
 
+void print_paging_storage_stats() 
+{
+    printf("\n=========================================\n");
+    printf("      MULTI-LEVEL PAGING STORAGE STATS   \n");
+    printf("=========================================\n");
+    
+    long total_bytes = total_allocated_pagetables * 512 * sizeof(addr_t);
+    
+    printf("Total Allocated Tables: %d\n", total_allocated_pagetables);
+    printf("Total Storage Size: %ld Bytes (%.2f KB)\n", total_bytes, total_bytes / 1024.0);
+    printf("=========================================\n\n");
+}
+
 #endif

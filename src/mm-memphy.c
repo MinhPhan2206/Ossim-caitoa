@@ -18,6 +18,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+
+static int total_memphy_reads = 0;
+static int total_memphy_writes = 0;
+static pthread_mutex_t memphy_stat_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
  *  MEMPHY_mv_csr - move MEMPHY cursor
@@ -70,10 +75,16 @@ int MEMPHY_read(struct memphy_struct *mp, addr_t addr, BYTE *value)
    if (mp == NULL)
       return -1;
 
+   pthread_mutex_lock(&memphy_stat_lock);
+   total_memphy_reads++;
+   pthread_mutex_unlock(&memphy_stat_lock);
+
+   pthread_mutex_lock(&mp->lock);
    if (mp->rdmflg)
       *value = mp->storage[addr];
-   else /* Sequential access device */
-      return MEMPHY_seq_read(mp, addr, value);
+   else 
+      MEMPHY_seq_read(mp, addr, value);
+   pthread_mutex_unlock(&mp->lock);
 
    return 0;
 }
@@ -110,10 +121,16 @@ int MEMPHY_write(struct memphy_struct *mp, addr_t addr, BYTE data)
    if (mp == NULL)
       return -1;
 
+   pthread_mutex_lock(&memphy_stat_lock);
+   total_memphy_writes++;
+   pthread_mutex_unlock(&memphy_stat_lock);
+
+   pthread_mutex_lock(&mp->lock);
    if (mp->rdmflg)
       mp->storage[addr] = data;
-   else /* Sequential access device */
-      return MEMPHY_seq_write(mp, addr, data);
+   else 
+      MEMPHY_seq_write(mp, addr, data);
+   pthread_mutex_unlock(&mp->lock);
 
    return 0;
 }
@@ -152,19 +169,19 @@ int MEMPHY_format(struct memphy_struct *mp, int pagesz)
 
 int MEMPHY_get_freefp(struct memphy_struct *mp, addr_t *retfpn)
 {
+   pthread_mutex_lock(&mp->lock);
    struct framephy_struct *fp = mp->free_fp_list;
 
-   if (fp == NULL)
+   if (fp == NULL) {
+      pthread_mutex_unlock(&mp->lock);
       return -1;
+   }
 
    *retfpn = fp->fpn;
    mp->free_fp_list = fp->fp_next;
+   pthread_mutex_unlock(&mp->lock); 
 
-   /* MEMPHY is iteratively used up until its exhausted
-    * No garbage collector acting then it not been released
-    */
    free(fp);
-
    return 0;
 }
 
@@ -172,6 +189,8 @@ int MEMPHY_dump(struct memphy_struct *mp)
 {
    if (mp == NULL || mp->storage == NULL) return -1;
    
+   pthread_mutex_lock(&mp->lock);
+
    printf("--- DUMPING MEMPHY CONTENT ---\n");
    int has_data = 0;
    for (int i = 0; i < mp->maxsz; i++) {
@@ -184,6 +203,9 @@ int MEMPHY_dump(struct memphy_struct *mp)
        printf("Memory is completely empty (all zeros).\n");
    }
    printf("------------------------------\n");
+
+   pthread_mutex_unlock(&mp->lock);
+   
    return 0;
 }
 
@@ -193,9 +215,11 @@ int MEMPHY_put_freefp(struct memphy_struct *mp, addr_t fpn)
    struct framephy_struct *newnode = malloc(sizeof(struct framephy_struct));
 
    /* Create new node with value fpn */
+   pthread_mutex_lock(&mp->lock);
    newnode->fpn = fpn;
    newnode->fp_next = fp;
    mp->free_fp_list = newnode;
+   pthread_mutex_unlock(&mp->lock);
 
    return 0;
 }
@@ -209,6 +233,8 @@ int init_memphy(struct memphy_struct *mp, addr_t max_size, int randomflg)
    mp->maxsz = max_size;
    memset(mp->storage, 0, max_size * sizeof(BYTE));
 
+   pthread_mutex_init(&mp->lock, NULL);
+
    MEMPHY_format(mp, PAGING_PAGESZ);
 
    mp->rdmflg = (randomflg != 0) ? 1 : 0;
@@ -217,6 +243,16 @@ int init_memphy(struct memphy_struct *mp, addr_t max_size, int randomflg)
       mp->cursor = 0;
 
    return 0;
+}
+
+void MEMPHY_print_stats()
+{
+   printf("\n=========================================\n");
+   printf("      PHYSICAL MEMORY ACCESS STATS       \n");
+   printf("=========================================\n");
+   printf("Total Physical Reads  (RAM & SWAP): %d\n", total_memphy_reads);
+   printf("Total Physical Writes (RAM & SWAP): %d\n", total_memphy_writes);
+   printf("=========================================\n\n");
 }
 
 // #endif
