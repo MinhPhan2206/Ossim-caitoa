@@ -1,0 +1,27 @@
+Time slot   0
+ld_routine
+Time slot   1
+Time slot   2
+	Loaded a process at input/proc/sc3, PID: 1 PRIO: 15
+	CPU 0: Dispatched process  1
+Time slot   3
+	CPU 0: Processed  1 has finished
+	CPU 0 stopped
+
+[OS SHUTDOWN] Extracting system telemetry...
+
+=========================================
+      PHYSICAL MEMORY ACCESS STATS       
+=========================================
+Total Physical Reads  (RAM & SWAP): 0
+Total Physical Writes (RAM & SWAP): 0
+=========================================
+
+
+=========================================
+      MULTI-LEVEL PAGING STORAGE STATS   
+=========================================
+Total Allocated Tables: 1
+Total Storage Size: 4096 Bytes (4.00 KB)
+=========================================
+
