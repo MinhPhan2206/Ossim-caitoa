@@ -19,6 +19,7 @@
 #include "mm64.h"
 #include "syscall.h"
 #include "libmem.h"
+#include "os-cfg.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>

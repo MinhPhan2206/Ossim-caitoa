@@ -199,7 +199,39 @@ int print_list_fp(struct framephy_struct *ifp) { return 0; }
 int print_list_rg(struct vm_rg_struct *irg) { return 0; }
 int print_list_vma(struct vm_area_struct *ivma) { return 0; }
 int print_list_pgn(struct pgn_t *ip) { return 0; }
-int print_pgtbl(struct pcb_t *caller, addr_t start, addr_t end) { return 0; }
+
+int print_pgtbl(struct pcb_t *caller, addr_t start, addr_t end) {
+    if (caller == NULL || caller->krnl == NULL || caller->krnl->mm == NULL) return -1;
+    
+    printf("\n--- PAGE TABLE DUMP OF PROCESS %d ---\n", caller->pid);
+    
+    struct vm_area_struct *vma = caller->krnl->mm->mmap;
+    if (vma == NULL) return -1;
+
+    addr_t max_addr = vma->sbrk;
+    int max_pgn = (max_addr / PAGING64_PAGESZ) + 1;
+    
+    for (int pgn = 0; pgn < max_pgn; pgn++) {
+        uint32_t pte = pte_get_entry(caller, pgn);
+        if (pte != 0) { // Có dữ liệu mapping
+            int is_present = PAGING_PAGE_PRESENT(pte);
+            int is_swapped = PAGING_PAGE_SWAPPED(pte);
+            
+            if (is_present && !is_swapped) {
+                // Đang nằm trên RAM thực tế
+                addr_t fpn = PAGING_FPN(pte);
+                printf("PGN %03d: Present=1, Swapped=0, FPN=%lu (RAM)\n", pgn, (unsigned long)fpn);
+            } 
+            else if (is_present && is_swapped) {
+                // Bị Thrashing đẩy xuống SWAP
+                addr_t swp_fpn = PAGING_SWP(pte);
+                printf("PGN %03d: Present=1, Swapped=1, FPN=%lu (SWAP)\n", pgn, (unsigned long)swp_fpn);
+            }
+        }
+    }
+    printf("-------------------------------------\n");
+    return 0;
+}
 
 void print_paging_storage_stats() 
 {
