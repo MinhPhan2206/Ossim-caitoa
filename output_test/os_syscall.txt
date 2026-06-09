@@ -3,11 +3,27 @@ ld_routine
 	Loaded a process at input/proc/sc2, PID: 1 PRIO: 15
 Time slot   1
 	CPU 0: Dispatched process  1
+
+--- PAGE TABLE DUMP OF PROCESS 1 ---
+PGN 000: Present=1, Swapped=0, FPN=0 (RAM)
+-------------------------------------
 Time slot   2
+
+--- PAGE TABLE DUMP OF PROCESS 1 ---
+PGN 000: Present=1, Swapped=0, FPN=0 (RAM)
+-------------------------------------
 Time slot   3
 	CPU 0: Put process  1 to run queue
 	CPU 0: Dispatched process  1
+
+--- PAGE TABLE DUMP OF PROCESS 1 ---
+PGN 000: Present=1, Swapped=0, FPN=0 (RAM)
+-------------------------------------
 Time slot   4
+
+--- PAGE TABLE DUMP OF PROCESS 1 ---
+PGN 000: Present=1, Swapped=0, FPN=0 (RAM)
+-------------------------------------
 Time slot   5
 	CPU 0: Put process  1 to run queue
 	CPU 0: Dispatched process  1
